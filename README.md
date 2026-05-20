@@ -96,3 +96,14 @@ A tabela `tasks` possui os campos:
 - Ordenação e paginação de resultados
 - Retorno JSON padronizado para a API
 
+## O que ainda quero melhorar
+
+Estou deixando o projeto funcional e pronto para entrega, mas ainda vou continuar desenvolvendo melhorias como:
+
+- interface para criar e editar tarefas diretamente no front-end
+- atribuição de tarefas para outros usuários
+- autenticação de API com tokens (Sanctum)
+- testes automatizados para garantir estabilidade
+- documentação ainda mais completa para uso e deploy
+
+Essas melhorias são próximas etapas que vou implementar para deixar o sistema mais completo.
