@@ -16,21 +16,44 @@ class TaskController extends Controller
     {
         $query = Task::with('user');
 
+        // Busca por título
         if ($request->filled('search')) {
-            $query->where('title', 'like', '%' . $request->search . '%');
+            $query->where('title', 'like', '%' . $request->search . '%')
+                  ->orWhere('description', 'like', '%' . $request->search . '%');
         }
 
+        // Filtro por status
         if ($request->filled('status')) {
-            $query->where('status', $request->status);
+            $status = $request->status;
+            if (in_array($status, ['pendente', 'andamento', 'concluida'])) {
+                $query->where('status', $status);
+            }
         }
 
+        // Filtro por responsável (nome do usuário)
         if ($request->filled('responsible')) {
-            $query->whereHas('user', function ($query) use ($request) {
-                $query->where('name', 'like', '%' . $request->responsible . '%');
+            $query->whereHas('user', function ($q) use ($request) {
+                $q->where('name', 'like', '%' . $request->responsible . '%');
             });
         }
 
-        $tasks = $query->orderBy('due_date')->paginate(10);
+        // Filtro por prioridade
+        if ($request->filled('priority')) {
+            $priority = $request->priority;
+            if (in_array($priority, ['baixa', 'media', 'alta'])) {
+                $query->where('priority', $priority);
+            }
+        }
+
+        // Ordenação customizável
+        $sortBy = $request->input('sort_by', 'due_date');
+        $sortDirection = $request->input('sort_direction', 'asc');
+        
+        if (in_array($sortBy, ['due_date', 'priority', 'status', 'created_at'])) {
+            $query->orderBy($sortBy, in_array($sortDirection, ['asc', 'desc']) ? $sortDirection : 'asc');
+        }
+
+        $tasks = $query->paginate($request->input('per_page', 10));
 
         return response()->json($tasks);
     }
@@ -40,19 +63,37 @@ class TaskController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
-        $validated = $request->validate([
-            'title' => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
-            'priority' => ['required', Rule::in(['baixa', 'media', 'alta'])],
-            'status' => ['required', Rule::in(['pendente', 'andamento', 'concluida'])],
-            'due_date' => ['required', 'date'],
-        ]);
+        try {
+            $validated = $request->validate([
+                'title' => ['required', 'string', 'min:3', 'max:255'],
+                'description' => ['nullable', 'string', 'max:1000'],
+                'priority' => ['required', Rule::in(['baixa', 'media', 'alta'])],
+                'status' => ['required', Rule::in(['pendente', 'andamento', 'concluida'])],
+                'due_date' => ['required', 'date', 'after_or_equal:today'],
+            ], [
+                'title.required' => 'O título da tarefa é obrigatório.',
+                'title.min' => 'O título deve ter no mínimo 3 caracteres.',
+                'priority.in' => 'Prioridade inválida. Use: baixa, media ou alta.',
+                'status.in' => 'Status inválido. Use: pendente, andamento ou concluida.',
+                'due_date.after_or_equal' => 'A data limite não pode ser anterior a hoje.',
+            ]);
 
-        $task = Task::create(array_merge($validated, [
-            'user_id' => $request->user()->id,
-        ]));
+            $task = Task::create(array_merge($validated, [
+                'user_id' => $request->user()->id,
+            ]));
 
-        return response()->json($task->load('user'), 201);
+            return response()->json([
+                'success' => true,
+                'message' => 'Tarefa criada com sucesso.',
+                'data' => $task->load('user'),
+            ], 201);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro de validação.',
+                'errors' => $e->errors(),
+            ], 422);
+        }
     }
 
     /**
@@ -70,19 +111,30 @@ class TaskController extends Controller
      */
     public function update(Request $request, Task $task): JsonResponse
     {
-        $this->authorizeTask($task);
+        try {
+            $this->authorizeTask($task);
 
-        $validated = $request->validate([
-            'title' => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
-            'priority' => ['required', Rule::in(['baixa', 'media', 'alta'])],
-            'status' => ['required', Rule::in(['pendente', 'andamento', 'concluida'])],
-            'due_date' => ['required', 'date'],
-        ]);
+            $validated = $request->validate([
+                'title' => ['required', 'string', 'min:3', 'max:255'],
+                'description' => ['nullable', 'string', 'max:1000'],
+                'priority' => ['required', Rule::in(['baixa', 'media', 'alta'])],
+                'status' => ['required', Rule::in(['pendente', 'andamento', 'concluida'])],
+                'due_date' => ['required', 'date', 'after_or_equal:today'],
+            ]);
 
-        $task->update($validated);
+            $task->update($validated);
 
-        return response()->json($task->load('user'));
+            return response()->json([
+                'success' => true,
+                'message' => 'Tarefa atualizada com sucesso.',
+                'data' => $task->load('user'),
+            ]);
+        } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Você não tem permissão para editar esta tarefa.',
+            ], 403);
+        }
     }
 
     /**
@@ -90,17 +142,29 @@ class TaskController extends Controller
      */
     public function destroy(Task $task): JsonResponse
     {
-        $this->authorizeTask($task);
+        try {
+            $this->authorizeTask($task);
 
-        $task->delete();
+            $task->delete();
 
-        return response()->json(null, 204);
+            return response()->json([
+                'success' => true,
+                'message' => 'Tarefa removida com sucesso.',
+            ], 200);
+        } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Você não tem permissão para deletar esta tarefa.',
+            ], 403);
+        }
     }
 
     protected function authorizeTask(Task $task): void
     {
         if ($task->user_id !== auth()->id()) {
-            abort(403, 'You are not authorized to access this task.');
+            throw new \Illuminate\Auth\Access\AuthorizationException(
+                'Você não tem permissão para acessar esta tarefa.'
+            );
         }
     }
 }
