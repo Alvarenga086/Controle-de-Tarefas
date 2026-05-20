@@ -1,79 +1,98 @@
 ﻿# Controle de Tarefas
 
-Este projeto é uma aplicação Laravel básica de controle de tarefas para equipe.
-A solução inclui autenticação de usuários e uma API REST para cadastro, listagem, atualização e remoção de tarefas.
+Este projeto é uma aplicação Laravel básica de controle de tarefas de equipe.
+O sistema inclui autenticação de usuários e uma API REST para cadastro, listagem, atualização e remoção de tarefas.
+
+## Requisitos atendidos
+
+- Laravel com autenticação de usuários
+- Banco de dados SQLite local
+- API REST para tarefas
+- Endpoints de cadastro, listagem, atualização e remoção
+- Filtros e paginação na listagem
+- Relação entre tarefas e usuário responsável
+
+> O campo "responsável" é representado pelo usuário autenticado que cria a tarefa. O sistema só permite que cada usuário acesse e gerencie suas próprias tarefas.
 
 ## Como executar
 
 1. Copie o arquivo de ambiente:
-   `powershell
+   ```powershell
    copy .env.example .env
-   `
+   ```
 2. Instale as dependências PHP:
-   `powershell
+   ```powershell
    composer install
-   `
+   ```
 3. Gere a chave da aplicação:
-   `powershell
+   ```powershell
    php artisan key:generate
-   `
+   ```
 4. Crie o arquivo SQLite se necessário:
-   `powershell
+   ```powershell
    if (-not (Test-Path database\database.sqlite)) { New-Item database\database.sqlite -ItemType File }
-   `
+   ```
 5. Execute as migrations:
-   `powershell
+   ```powershell
    php artisan migrate
-   `
+   ```
 6. Inicie o servidor local:
-   `powershell
+   ```powershell
    php artisan serve
-   `
+   ```
 
-## Autenticação
+7. Abra o navegador em:
+   ```text
+   http://127.0.0.1:8000
+   ```
 
-O projeto usa o scaffold de autenticação do Laravel (outes/auth.php).
-Após registrar um usuário, faça login para acessar os endpoints de tarefa.
+## Credenciais de teste
+
+- Email: `daniel@teste.com`
+- Senha: `daniel123`
+
+## Como testar a autenticação
+
+1. Acesse `http://127.0.0.1:8000/login`.
+2. Faça login com as credenciais acima.
+3. Após o login, os endpoints da API `/api/tasks` estarão disponíveis.
 
 ## Endpoints da API
 
-Todos os endpoints abaixo exigem autenticação.
+Todos os endpoints abaixo exigem autenticação:
 
-- GET /api/tasks
-  - Busca tarefas com paginação.
-  - Parâmetros opcionais: search, status, esponsible, page.
-- GET /api/tasks/{task}
+- `GET /api/tasks`
+  - Lista tarefas com paginação.
+  - Parâmetros opcionais: `search`, `status`, `responsible`, `priority`, `sort_by`, `sort_direction`, `page`.
+- `GET /api/tasks/{task}`
   - Retorna os detalhes de uma tarefa.
-- POST /api/tasks
+- `POST /api/tasks`
   - Cria uma nova tarefa.
-  - Campos obrigatórios: 	itle, priority, status, due_date.
-  - Campos opcionais: description.
-- PUT /api/tasks/{task}
+  - Campos obrigatórios: `title`, `priority`, `status`, `due_date`.
+  - Campo opcional: `description`.
+- `PUT /api/tasks/{task}`
   - Atualiza uma tarefa existente.
-- DELETE /api/tasks/{task}
+- `DELETE /api/tasks/{task}`
   - Remove uma tarefa.
 
-## Modelo de Dados
+## Modelo de dados
 
-A tabela 	asks foi mapeada com os campos:
-- 	itle
-- description
-- user_id (responsável)
-- priority (aixa, media, lta)
-- status (pendente, ndamento, concluida)
-- due_date
-- timestamps
+A tabela `tasks` possui os campos:
 
-## Decisões técnicas
+- `title`
+- `description`
+- `user_id` (responsável)
+- `priority` (`baixa`, `media`, `alta`)
+- `status` (`pendente`, `andamento`, `concluida`)
+- `due_date`
+- `created_at`, `updated_at`
 
-- API implementada no outes/web.php com prefixo /api e proteção uth.
-- As tarefas são criadas pelo usuário autenticado e associadas ao user_id.
-- A listagem suporta busca por título, filtro por status e filtro por responsável.
-- Uso de JSON para os endpoints da API.
+## O que foi implementado
 
-## O que pode ser melhorado
+- Autenticação de usuário Laravel
+- CRUD completo de tarefas
+- Associação de tarefa ao usuário autenticado como responsável
+- Filtros de busca por título, status, responsável e prioridade
+- Ordenação e paginação de resultados
+- Retorno JSON padronizado para a API
 
-- Adicionar uma interface front-end com Vue.js ou Inertia.
-- Implementar autenticação de API por token/Sanctum.
-- Adicionar testes automatizados para os endpoints e validações.
-- Criar views de gerenciamento de tarefas e dashboard.
